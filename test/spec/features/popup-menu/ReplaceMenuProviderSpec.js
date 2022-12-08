@@ -14,6 +14,9 @@ import customRulesModule from '../../../util/custom-rules';
 import modelingModule from 'lib/features/modeling';
 import replaceMenuProviderModule from 'lib/features/popup-menu';
 
+import camundaModdleModule from 'camunda-bpmn-moddle/lib';
+import camundaPackage from 'camunda-bpmn-moddle/resources/camunda.json';
+
 import {
   query as domQuery,
   queryAll as domQueryAll,
@@ -23,6 +26,8 @@ import {
 import { is } from 'lib/util/ModelUtil';
 
 import { isExpanded } from 'lib/util/DiUtil';
+import { getBusinessObject } from '../../../../lib/util/ModelUtil';
+import { omit } from 'min-dash';
 
 
 describe('features/popup-menu - replace menu provider', function() {
@@ -281,7 +286,12 @@ describe('features/popup-menu - replace menu provider', function() {
 
   describe('toggle', function() {
 
-    beforeEach(bootstrapModeler(diagramXMLMarkers, { modules: testModules }));
+    beforeEach(bootstrapModeler(diagramXMLMarkers,{
+      modules: Object.assign(testModules, camundaModdleModule),
+      moddleExtensions: {
+        camunda: camundaPackage
+      }
+    }));
 
     var toggleActive;
 
@@ -500,6 +510,48 @@ describe('features/popup-menu - replace menu provider', function() {
         expect(domClasses(loopEntry).has('active')).to.be.false;
       }));
 
+
+      it('should set loop characteristics type', inject(function(bpmnReplace, elementRegistry) {
+
+        // given
+        var task = elementRegistry.get('LoopTask'),
+            businessObject = getBusinessObject(task);
+
+        openPopup(task);
+
+        // when
+        triggerAction('toggle-parallel-mi');
+
+        // then
+        var newLoopCharacteristics = businessObject.loopCharacteristics;
+
+        expect(is(newLoopCharacteristics, 'bpmn:MultiInstanceLoopCharacteristics')).to.be.true;
+        expect(newLoopCharacteristics.isSequential).to.be.false;
+      }));
+
+
+      it('should keep sequential properties', inject(function(elementRegistry) {
+
+        // given
+        var task = elementRegistry.get('SequentialTask'),
+            businessObject = getBusinessObject(task),
+            loopCharacteristics = Object.assign({}, businessObject.loopCharacteristics);
+
+        openPopup(task);
+
+        // assume
+        expect(loopCharacteristics.isSequential).to.be.true;
+
+        // when
+        triggerAction('toggle-parallel-mi');
+
+        // then
+        var newLoopCharacteristics = businessObject.loopCharacteristics;
+
+        expect(newLoopCharacteristics.isSequential).to.be.false;
+        expect(omit(newLoopCharacteristics, 'isSequential')).to.eql(omit(loopCharacteristics, 'isSequential'));
+      }));
+
     });
 
 
@@ -583,6 +635,48 @@ describe('features/popup-menu - replace menu provider', function() {
         expect(domClasses(parallelEntry).has('active')).to.be.false;
       }));
 
+
+      it('should set loop characteristics type', inject(function(bpmnReplace, elementRegistry) {
+
+        // given
+        var task = elementRegistry.get('LoopTask'),
+            businessObject = getBusinessObject(task);
+
+        openPopup(task);
+
+        // when
+        triggerAction('toggle-sequential-mi');
+
+        // then
+        var newLoopCharacteristics = businessObject.loopCharacteristics;
+
+        expect(is(newLoopCharacteristics, 'bpmn:MultiInstanceLoopCharacteristics')).to.be.true;
+        expect(newLoopCharacteristics.isSequential).to.be.true;
+      }));
+
+
+      it('should keep parallel properties', inject(function(elementRegistry) {
+
+        // given
+        var task = elementRegistry.get('ParallelTask'),
+            businessObject = getBusinessObject(task),
+            loopCharacteristics = Object.assign({}, businessObject.loopCharacteristics);
+
+        openPopup(task);
+
+        // assume
+        expect(loopCharacteristics.isSequential).to.be.undefined;
+
+        // when
+        triggerAction('toggle-sequential-mi');
+
+        // then
+        var newLoopCharacteristics = businessObject.loopCharacteristics;
+
+        expect(newLoopCharacteristics.isSequential).to.be.true;
+        expect(omit(newLoopCharacteristics, 'isSequential')).to.eql(loopCharacteristics);
+      }));
+
     });
 
 
@@ -663,6 +757,25 @@ describe('features/popup-menu - replace menu provider', function() {
 
         // then
         expect(domClasses(parallelEntry).has('active')).to.be.false;
+      }));
+
+
+      it('should set loop characteristics type', inject(function(bpmnReplace, elementRegistry) {
+
+        // given
+        var task = elementRegistry.get('SequentialTask'),
+            businessObject = getBusinessObject(task);
+
+        openPopup(task);
+
+        // when
+        triggerAction('toggle-loop');
+
+        // then
+        var newLoopCharacteristics = businessObject.loopCharacteristics;
+
+        expect(is(newLoopCharacteristics, 'bpmn:StandardLoopCharacteristics')).to.be.true;
+        expect(newLoopCharacteristics.isSequential).to.be.undefined;
       }));
     });
 
@@ -1364,7 +1477,7 @@ describe('features/popup-menu - replace menu provider', function() {
 
         // then
         expect(emptyPoolLabel).to.exist;
-        expect(emptyPoolLabel.innerHTML).to.eql('Empty Pool (removes content)');
+        expect(emptyPoolLabel.textContent).to.eql('Empty Pool (removes content)');
       }));
 
 
@@ -1380,7 +1493,7 @@ describe('features/popup-menu - replace menu provider', function() {
 
         // then
         expect(emptyPoolLabel).to.exist;
-        expect(emptyPoolLabel.innerHTML).to.eql('Empty Pool');
+        expect(emptyPoolLabel.textContent).to.eql('Empty Pool');
       }));
 
     });
@@ -2357,13 +2470,13 @@ function openPopup(element, offset) {
 }
 
 function queryEntry(id) {
-  var container = getBpmnJS().get('canvas').getContainer();
+  var container = getMenuContainer();
 
   return domQuery('.djs-popup [data-id="' + id + '"]', container);
 }
 
 function queryEntries() {
-  var container = getBpmnJS().get('canvas').getContainer();
+  var container = getMenuContainer();
 
   return domQueryAll('.djs-popup .entry', container);
 }
@@ -2378,10 +2491,15 @@ function triggerAction(id) {
   var entry = queryEntry(id);
 
   if (!entry) {
-    throw new Error('entry "'+ id +'" not found in replace menu');
+    throw new Error('entry "' + id + '" not found in replace menu');
   }
 
   var popupMenu = getBpmnJS().get('popupMenu');
 
   return popupMenu.trigger(globalEvent(entry, { x: 0, y: 0 }));
+}
+
+function getMenuContainer() {
+  const popup = getBpmnJS().get('popupMenu');
+  return popup._current.container;
 }

@@ -23,10 +23,8 @@
  *   insertCSS
  * } from 'bpmn-js/test/helper';
  *
- * var fs = require('fs');
- *
  * // insert diagram.css
- * insertCSS('diagram.css', fs.readFileSync('some-css.css', 'utf8'));
+ * insertCSS('diagram.css', require('./some-css.css'));
  * ```
  */
 
@@ -104,7 +102,7 @@ export function bootstrapBpmnJS(BpmnJS, diagram, options, locals) {
       var mockModule = {};
 
       forEach(_locals, function(v, k) {
-        mockModule[k] = ['value', v];
+        mockModule[k] = [ 'value', v ];
       });
 
       _options.modules = [].concat(_options.modules || [], [ mockModule ]);
@@ -264,6 +262,31 @@ export function createViewer(container, viewerInstance, xml, diagramId) {
     return { warnings: result.warnings, viewer: viewer };
   }).catch(function(err) {
     return { error: err, viewer: viewer, warnings: err.warnings };
+  });
+}
+
+function logConfigured(type, force) {
+  var url = new URL(window.location.href);
+
+  var log = ('searchParams' in url) && url.searchParams.get('log') || '';
+
+  return force || log.includes('save-xml');
+}
+
+/**
+ * Enable logging on a modeler instance.
+ *
+ * @param  {import('bpmn-js')} modeler
+ * @param  {boolean} [force=false]
+ */
+export function enableLogging(modeler, force) {
+
+  var saveXML = logConfigured('save-xml', force);
+
+  saveXML && modeler.on('commandStack.changed', function() {
+    modeler.saveXML({ format: true }).then(function(result) {
+      console.log(result.xml);
+    });
   });
 }
 
