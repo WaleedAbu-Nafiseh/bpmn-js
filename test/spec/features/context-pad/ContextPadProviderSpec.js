@@ -26,6 +26,7 @@ import replaceMenuModule from 'lib/features/popup-menu';
 import createModule from 'diagram-js/lib/features/create';
 import customRulesModule from '../../../util/custom-rules';
 import autoPlaceModule from 'lib/features/auto-place';
+import appendMenuProvider from 'lib/features/popup-menu';
 
 
 describe('features - context-pad', function() {
@@ -36,7 +37,8 @@ describe('features - context-pad', function() {
     contextPadModule,
     replaceMenuModule,
     customRulesModule,
-    createModule
+    createModule,
+    appendMenuProvider
   ];
 
 

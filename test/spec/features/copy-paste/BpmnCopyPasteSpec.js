@@ -28,6 +28,12 @@ import {
   is
 } from 'lib/util/ModelUtil';
 
+import { isRoot } from 'diagram-js/lib/util/ModelUtil';
+
+/**
+ * @typedef {import('../../../../lib/model/Types').Element} Element
+ */
+
 
 describe('features/copy-paste', function() {
 
@@ -968,7 +974,7 @@ describe('features/copy-paste', function() {
 /**
  * Integration test involving copying, pasting, moving, undoing and redoing.
  *
- * @param {string|Array<string>} elementIds
+ * @param {string|string[]} elementIds
  */
 function integrationTest(elementIds) {
   if (!isArray(elementIds)) {
@@ -1011,7 +1017,7 @@ function integrationTest(elementIds) {
       });
 
       // (4) move all elements except root
-      modeling.moveElements(elementRegistry.filter(isRoot), { x: 50, y: -50 });
+      modeling.moveElements(elementRegistry.filter(element => !isRoot(element)), { x: 50, y: -50 });
 
       // when
       // (5) undo moving, pasting and removing
@@ -1051,10 +1057,6 @@ function integrationTest(elementIds) {
     });
 
   };
-}
-
-function isRoot(element) {
-  return !!element.parent;
 }
 
 function getPropertyForElements(elements, property) {
@@ -1134,9 +1136,9 @@ function _findDescriptorsInTree(elements, tree, depth) {
 /**
  * Copy elements.
  *
- * @param {Array<string|djs.model.Base} elements
+ * @param {(string|Element)[]} elements
  *
- * @returns {Object}
+ * @return {Object}
  */
 function copy(elements) {
   if (!isArray(elements)) {
